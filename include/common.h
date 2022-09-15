@@ -1,0 +1,3 @@
+
+
+#define SERVER_IP 192.168.20.9
