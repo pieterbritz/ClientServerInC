@@ -65,8 +65,13 @@ big_build: $(server) $(client)
 
 .PHONY: depend clean
 
-clean:
-	$(RM) server $(BUILD_SERVER_DIR)/* client $(BUILD_CLIENT_DIR)/* 
+cleanserver:
+	$(RM) $(BUILD_SERVER_DIR)/server 
+	$(RM) $(BUILD_SERVER_DIR)/*.o
+
+cleanclient:
+	$(RM) $(BUILD_CLIENT_DIR)/client 
+	$(RM) $(BUILD_CLIENT_DIR)/*.o 
 
 depend: $(SRCS)
 		makedepend $(INCLUDES) $^
