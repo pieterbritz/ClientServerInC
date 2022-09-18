@@ -29,3 +29,14 @@ The submitted code will be peer reviewed and should be representative of your co
   
  If you can please aim to have this challenge completed by COB 19/09/2022.
  
+ Solution:
+ =========
+ 1. Build the server by running "make server" from the project root folder.
+    You will find the executable inside the build_server folder.
+    Remember to supply the server IP and port, e.g. ./server 127.0.0.1 8080
+
+ 2. Build the client by running "make client" from the project root folder.
+    You will find the executable inside the build_client folder.
+    Remember to supply the server IP and port, e.g. ./server 127.0.0.1 8080
+
+ 3. Start the server by pressing "s".

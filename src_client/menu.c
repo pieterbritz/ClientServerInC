@@ -6,9 +6,14 @@
 #include <string.h>
 #include <curses.h>
 #include <termios.h>
+#include <dirent.h> 
 
+#include "menu.h"
+#include "v_client.h"
 
-void DrawMenu(bool connected, uint32_t dataRxCount, uint32_t dataTxCount)
+bool keepRunning = true;
+
+void DrawMenu(menu_t *menuData)
 {
     system("clear");
     printf("============================================================\n");
@@ -16,37 +21,72 @@ void DrawMenu(bool connected, uint32_t dataRxCount, uint32_t dataTxCount)
     printf("============================================================\n");
     printf("=     Options:                                             =\n");
     printf("=     ========                                             =\n");
-    printf("=     (C)onnect to                                         =\n");
-    printf("=     E(x)it                                               =\n");
+    printf("=     (C)onnect to                %s : %d             =\n", menuData->ip, menuData->port);
+    printf("=     Cl(o)se connection                                   =\n");
     printf("=     (L)ogging                                            =\n");
+    printf("=     Lis(t) files                                         =\n");
     printf("=     (D)ownload file                                      =\n");
+    printf("=     E(x)it                                               =\n");
     printf("=                                                          =\n");
     printf("=                                                          =\n");
-    printf("=    Connection status:           %s            =\n", (connected)? "Connected    ": "Not Connected");
-    printf("=    Bytes Send: %.06d      Bytes Received: %.06d  =\n", dataTxCount, dataRxCount);
+    printf("=    Connection status:           %s            =\n", (menuData->connected)? "Connected    ": "Not Connected");
+    printf("=    Bytes Send: %.06d      Bytes Received: %.06d        =\n", menuData->dataTxCount, menuData->dataRxCount);
     printf("=                                                          =\n");
     printf("============================================================\n");
+    if (menuData->message != NULL) printf("%s", menuData->message);
+}
+
+void drawMore(char *message)
+{
+    printf("%s\n", message);
+}
+
+int ListFiles(void)
+{
+  DIR *d;
+  struct dirent *dir;
+  d = opendir(".");
+  if (d) {
+    while ((dir = readdir(d)) != NULL) {
+      printf("%s\n", dir->d_name);
+    }
+    closedir(d);
+  }
+  return(0);
 }
 
 // Menu implementation
-int menu(void)
+void menu(menu_t *menuData)
 {
-    int command;
+    int command, res;
 
-    DrawMenu(false, 0, 0);
-    while ((command = getchar()) != EOF)
+    DrawMenu(menuData);
+    while (keepRunning)
     {
+        command = getchar();
         switch(command)
         {
         case 'c':
         case 'C':
-            DrawMenu(true, 0, 0);
-            printf("You are now connected.\n");
+            if((res = ConnectToServer()) < 0)
+            {
+                menuData->connected = false;
+            }
+            else
+            {
+                menuData->connected = true;
+            }
+            DrawMenu(menuData);
+            if (menuData->connected) { printf("menu: You are now connected.\n"); } else {printf("Menu: Connection failed.(err%d)\n", res);}
             break;
 
-        case 'x':
-        case 'X':
-            DrawMenu(false, 0, 0);
+        case 'o':
+        case 'O':
+            if (CloseConnection() == 0)
+            {
+                menuData->connected = false;
+            }
+            DrawMenu(menuData);
             printf("Closed connection.\n");
             break;
 
@@ -55,21 +95,28 @@ int menu(void)
             printf("Logging to a file.\n");
             break;
 
+        case 't':
+        case 'T':
+            requestFileList();
+            DrawMenu(menuData);
+           break;
+
         case 'd':
         case 'D':
-            printf("Download file\n");
+            printf("Enter filename: ");
             break;
 
-        case 'q':
-        case 'Q':
+        case 'x':
+        case 'X':
             printf("Quit\n");
-            exit(0);
+            keepRunning = false;
             break;
 
         default:
-            printf("Unexpected input %d\n", command);
+//            DrawMenu(menu->ip, menu->connected, menu->dataRxCount, menu->dataTxCount);
+//            printf("Unexpected input %d\n", command);
             break;
-        }
-    }
-    return 0;
-}
+        } // switch(command)
+    } // while (keepRunning)
+    
+} // void menu(menu_t *menuData)
