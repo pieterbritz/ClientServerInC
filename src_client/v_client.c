@@ -15,6 +15,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>	//inet_addr
 #include <dirent.h> 
+#include <errno.h>
 
 #include "../include/logger.h"
 #include "menu.h"
@@ -66,8 +67,12 @@ int ConnectToServer(void)
 		return result;
 	clientData.serverSize = sizeof(clientData.serverAddr);
 	result = connect(clientData.socketfd, (struct sockaddr *)&clientData.serverAddr, clientData.serverSize);
-	snprintf(buff, sizeof(buff), "socket:%d, serverAddr:%d, size:%d, port:%d, result:%d", clientData.socketfd, clientData.serverAddr.sin_addr.s_addr,
-			 clientData.serverSize, clientData.port, result);
+	if (result == -1)
+	{
+		fprintf(stderr, "Error on accept --> %s\n", strerror(errno));
+	}
+	snprintf(buff, sizeof(buff), "socket:%d, serverAddr:%d, size:%d, port:%d, error:%s", clientData.socketfd, clientData.serverAddr.sin_addr.s_addr,
+			 clientData.serverSize, clientData.port, strerror(errno));
 	logger(__FUNCTION__, buff);
 	return result;
 }

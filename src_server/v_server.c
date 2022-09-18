@@ -67,7 +67,7 @@ int DoSendBuffer(int sessionFd, char *buffer, int length)
     return index;
 }
 
-void send_file(FILE *fp, int sockfd)
+void SendFile(FILE *fp, int sockfd)
 {
     int n;
     char data[SIZE] = {0};
@@ -76,12 +76,26 @@ void send_file(FILE *fp, int sockfd)
     {
         if (send(sockfd, data, sizeof(data), 0) == -1) 
         {
-            perror("[-]Error in sending file.");
-            exit(1);
+            logger(__FUNCTION__, "[-]Error in sending file.");
+            break;
         }
         memset(data, 0, SIZE);
     }
 }
+
+void RequestFileName(int sockfd)
+{
+    char message[SIZE];
+    
+    memset(message, 0, SIZE);
+    snprintf(message, sizeof(message), "Please send file name: ");
+    if (send(sockfd, message, sizeof(message), 0) == -1) 
+    {
+        logger(__FUNCTION__, "[-]Error in sending message.");
+    }
+ 
+}
+
 
 /* Read the file list from the docs directory */
 int GetFileList(int sockfd)
@@ -105,7 +119,7 @@ int GetFileList(int sockfd)
     return 0;
 }
 
-void handle_session(int socket_fd) {
+void handle_session(int socket_fd, char *cmd) {
     time_t now = time(0);
     char buffer[SIZE];
 
@@ -118,7 +132,17 @@ void handle_session(int socket_fd) {
     }
     DoSendBuffer(socket_fd, buffer, length);
     
-    GetFileList(socket_fd);
+    switch(cmd[0])
+    {
+        case 't':
+            GetFileList(socket_fd);
+            break;
+        case 'd':
+            RequestFileName(socket_fd);
+        default:
+            break;
+    }
+    
 }
 
 /* This function allows for multiple client connections. */
@@ -236,18 +260,20 @@ int AcceptConnections(void)
                     close( serverData.sd );
                     serverData.client_socket[i] = 0;
                 }
-                    
-                //Echo back the message that came in
                 else
                 {
                     //set the string terminating NULL byte on the end
                     //of the data read
                     buffer[serverData.valread] = '\0';
-                    send(serverData.sd , buffer , strlen(buffer) , 0 );
+                    //send(serverData.sd , buffer , strlen(buffer) , 0 );   // This will echo back what was received
                     snprintf(msg, sizeof(msg), "[+]Received from client: %s", buffer);
                     logger(__FUNCTION__, msg);
                     if (strcmp(buffer, "t") == 0)
-                        handle_session(serverData.sd);
+                        handle_session(serverData.sd, "t");
+                    else if (strcmp(buffer, "d") == 0)
+                        handle_session(serverData.sd, "d");
+                    else
+
                 }
             }
         }
