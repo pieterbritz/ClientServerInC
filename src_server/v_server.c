@@ -96,6 +96,19 @@ void RequestFileName(int sockfd)
  
 }
 
+void SendFileToClient(int sockfd, char *fileName)
+{
+	DIR *d;
+	struct dirent *dir;
+    char buffer[SIZE];
+
+	d = opendir("../docs");
+	if (d)
+    {
+
+    }
+}
+
 
 /* Read the file list from the docs directory */
 int GetFileList(int sockfd)
@@ -119,10 +132,11 @@ int GetFileList(int sockfd)
     return 0;
 }
 
-void handle_session(int socket_fd, char *cmd) {
+void handle_session(int socket_fd, char *rxBuff) {
     time_t now = time(0);
     char buffer[SIZE];
 
+    memset(buffer, 0, SIZE);
     size_t length = strftime(buffer, sizeof(buffer), "%a %b %d %T %Y\r\n", localtime(&now));
     logger(__FUNCTION__, buffer);
     if (length == 0)
@@ -132,7 +146,10 @@ void handle_session(int socket_fd, char *cmd) {
     }
     DoSendBuffer(socket_fd, buffer, length);
     
-    switch(cmd[0])
+    memset(buffer, 0, SIZE);
+    snprintf(buffer, sizeof(buffer), "%s", rxBuff);
+    logger(__FUNCTION__, buffer);
+    switch(rxBuff[0])
     {
         case 't':
             GetFileList(socket_fd);
@@ -206,8 +223,9 @@ int AcceptConnections(void)
             logger(__FUNCTION__, "accept");
             exit(EXIT_FAILURE);
             }
-            menuData.connections = serverData.connCount++;
+            menuData.connections = ++serverData.connCount;
             DrawMenu(&menuData);
+            puts("New Connection.");
 
             //inform user of socket number - used in send and receive commands
             snprintf(msg, sizeof(msg), "New connection , socket fd is %d, ip is : %s, port : %d\n",
@@ -249,11 +267,15 @@ int AcceptConnections(void)
                 //incoming message
                 if ((serverData.valread = read( serverData.sd , buffer, SIZE)) == 0)
                 {
+                    menuData.dataRxCount += serverData.valread;
                     //Somebody disconnected , get his details and print
-                    getpeername(serverData.sd , (struct sockaddr*)&serverData.address , \
+                    getpeername(serverData.sd, (struct sockaddr*)&serverData.address, \
                     (socklen_t*)&serverData.addrlen);
-                    snprintf(msg, sizeof(msg), "Host disconnected , ip %s , port %d \n" ,
-                    inet_ntoa(serverData.address.sin_addr) , ntohs(serverData.address.sin_port));
+                    menuData.connections = ++serverData.connCount;
+                    DrawMenu(&menuData);
+                    puts("Host disconnected");
+                    snprintf(msg, sizeof(msg), "Host disconnected, ip %s, port %d \n",
+                    inet_ntoa(serverData.address.sin_addr), ntohs(serverData.address.sin_port));
                     logger(__FUNCTION__, msg);
 
                     //Close the socket and mark as 0 in list for reuse
@@ -268,12 +290,7 @@ int AcceptConnections(void)
                     //send(serverData.sd , buffer , strlen(buffer) , 0 );   // This will echo back what was received
                     snprintf(msg, sizeof(msg), "[+]Received from client: %s", buffer);
                     logger(__FUNCTION__, msg);
-                    if (strcmp(buffer, "t") == 0)
-                        handle_session(serverData.sd, "t");
-                    else if (strcmp(buffer, "d") == 0)
-                        handle_session(serverData.sd, "d");
-                    else
-
+                    handle_session(serverData.sd, buffer);
                 }
             }
         }
@@ -358,11 +375,6 @@ void write_file(int sockfd)
     return;
 }
 
- 
-#define TRUE 1
-#define FALSE 0
-#define PORT 8888
- 
 int main(int argc, char *argv[])
 {
     int i;
@@ -380,8 +392,6 @@ int main(int argc, char *argv[])
     serverData.port = atoi(argv[2]);
 
     serverData.max_clients = 30;
-
-    char buffer[1025]; //data buffer of 1K
 
     //initialise all client_socket[] to 0 so not checked
     for (i = 0; i < serverData.max_clients; i++)

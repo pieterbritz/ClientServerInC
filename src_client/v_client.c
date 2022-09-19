@@ -9,7 +9,7 @@
 */
 
 #include <stdio.h>
-#include<string.h>	//strlen
+#include <string.h>	//strlen
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/socket.h>
@@ -57,15 +57,10 @@ int ConfigureLocalSocket(struct sockaddr_in *server, char *server_ip, int port)
 	return 0;
 }
 
-int ConnectToServer(void)
+int DoConnect(void)
 {
 	char buff[600];
 	int result = 0;
-	if((result = CreateLocalSocket(&clientData.socketfd)) < 0)
-		return result;
-	memset(&clientData.serverAddr, 0, sizeof(clientData.serverAddr));
-	if((result = ConfigureLocalSocket(&clientData.serverAddr, &clientData.server_ip[0], clientData.port)) < 0)
-		return result;
 	clientData.serverSize = sizeof(clientData.serverAddr);
 	result = connect(clientData.socketfd, (struct sockaddr *)&clientData.serverAddr, clientData.serverSize);
 	if (result == -1)
@@ -75,6 +70,19 @@ int ConnectToServer(void)
 	snprintf(buff, sizeof(buff), "socket:%d, serverAddr:%d, size:%d, port:%d, error:%s", clientData.socketfd, clientData.serverAddr.sin_addr.s_addr,
 			 clientData.serverSize, clientData.port, strerror(errno));
 	logger(__FUNCTION__, buff);
+	return result;
+}
+
+int ConnectToServer(void)
+{
+	int result = 0;
+	if((result = CreateLocalSocket(&clientData.socketfd)) < 0)
+		return result;
+	memset(&clientData.serverAddr, 0, sizeof(clientData.serverAddr));
+	if((result = ConfigureLocalSocket(&clientData.serverAddr, &clientData.server_ip[0], clientData.port)) < 0)
+		return result;
+	result = DoConnect();
+	close(clientData.socketfd);
 	return result;
 }
 
@@ -122,22 +130,35 @@ void write_file(int sockfd, char *filename)
     return;
 }
 
-void requestFileList(void)
+void sendRequest(char *request)
 {
-	char txBuff[32] = "t";
+	char txBuff[128];
 	int bytesRead = 0;
 	int bytesWrite = 0;
 	char tmpBuff[500];
 
+	CreateLocalSocket(&clientData.socketfd);
+	if(DoConnect() < 0)
+	{
+		sprintf(tmpBuff, "[-] connect error:%s", strerror(errno));
+		logger(__FUNCTION__, tmpBuff);
+		return;
+	}
+	else
+	{
+		sprintf(tmpBuff, "[+] connect client socket: %d :%s", clientData.socketfd, strerror(errno));
+		logger(__FUNCTION__, tmpBuff);
+	}
 	memset(rxBuff, 0, sizeof(rxBuff));
-	bytesWrite = write(clientData.socketfd, txBuff, sizeof(txBuff));
+	snprintf(txBuff, sizeof(txBuff), "%s",request);
+	bytesWrite = send(clientData.socketfd, txBuff, sizeof(txBuff), 0);
 		sprintf(tmpBuff, "bytesWrite:%d", bytesWrite);
 		logger(__FUNCTION__, tmpBuff);
 	menuData.dataTxCount += bytesWrite;
 	menuData.sizeOfMessage = 0;
 	do
 	{
-		bytesRead = read(clientData.socketfd, rxBuff, sizeof(rxBuff));
+		bytesRead = recv(clientData.socketfd, rxBuff, sizeof(rxBuff), 0);
 		sprintf(tmpBuff, "bytesRead:%d", bytesRead);
 		logger(__FUNCTION__, tmpBuff);
 		menuData.dataRxCount += bytesRead;
@@ -145,6 +166,26 @@ void requestFileList(void)
 		memset(rxBuff, 0, SIZE);
 	}
 	while(bytesRead > 0);
+	if(close(clientData.socketfd) < 0)
+	{
+		sprintf(tmpBuff, "[-] close error:%s", strerror(errno));
+		logger(__FUNCTION__, tmpBuff);
+	}
+	else
+	{
+		sprintf(tmpBuff, "[+] close client socket: %d :%s", clientData.socketfd, strerror(errno));
+		logger(__FUNCTION__, tmpBuff);
+	}
+}
+
+void requestFileList(void)
+{
+	sendRequest("t");
+}
+
+void requestDownload(void)
+{
+	sendRequest("d");
 }
 
 /*
@@ -167,7 +208,7 @@ int main (int argc, char *argv[])
 	{
 		printf("No server IP was supplied. Please check usage.\n");
 		printf("Usage: client <server_ip> <port>\n");
-		printf("server_ip: IP4 format, eg. 192.168.10.10\n");
+		printf("server_ip: IP4 format, eg. 127.0.0.1\n");
 		printf("server port: TCP port number eg. 8080\n");
 		return 1;
 	}

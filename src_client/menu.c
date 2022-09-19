@@ -38,7 +38,7 @@ void DrawMenu(menu_t *menuData)
 
 void drawMore(char *message)
 {
-    printf("%s\n", message);
+    printf("%s", message);
 }
 
 int ListFiles(void)
@@ -103,7 +103,7 @@ void menu(menu_t *menuData)
 
         case 'd':
         case 'D':
-            printf("Enter filename: ");
+            requestDownload();
             break;
 
         case 'x':
