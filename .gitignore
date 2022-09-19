@@ -1,0 +1,8 @@
+# ignore all build files
+build_client/
+build_server/
+build_client/README
+build_server/README
+
+# ignore VSC project files
+*.json

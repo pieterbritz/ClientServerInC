@@ -50,9 +50,10 @@ int ConfigureLocalSocket(struct sockaddr_in *server, char *server_ip, int port)
 {
 	if ((server == NULL) || (server_ip == NULL))
 		return -3;
-	server->sin_addr.s_addr = inet_addr("127.0.0.1"); //INADDR_ANY; //inet_addr(server_ip);
+	inet_pton(AF_INET, server_ip, &(server->sin_addr));
+	//server->sin_addr.s_addr = inet_addr(server_ip);
 	server->sin_family = AF_INET;
-	server->sin_port = port;
+	server->sin_port = htons(port);
 	return 0;
 }
 
