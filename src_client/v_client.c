@@ -82,7 +82,6 @@ int ConnectToServer(void)
 	if((result = ConfigureLocalSocket(&clientData.serverAddr, &clientData.server_ip[0], clientData.port)) < 0)
 		return result;
 	result = DoConnect();
-	close(clientData.socketfd);
 	return result;
 }
 
@@ -135,22 +134,10 @@ void sendRequest(char *request)
 	char txBuff[128];
 	int bytesRead = 0;
 	int bytesWrite = 0;
-	char tmpBuff[500];
+	char tmpBuff[SIZE+130];
 
-	CreateLocalSocket(&clientData.socketfd);
-	if(DoConnect() < 0)
-	{
-		sprintf(tmpBuff, "[-] connect error:%s", strerror(errno));
-		logger(__FUNCTION__, tmpBuff);
-		return;
-	}
-	else
-	{
-		sprintf(tmpBuff, "[+] connect client socket: %d :%s", clientData.socketfd, strerror(errno));
-		logger(__FUNCTION__, tmpBuff);
-	}
-	memset(rxBuff, 0, sizeof(rxBuff));
-	snprintf(txBuff, sizeof(txBuff), "%s",request);
+	memset(txBuff, 0, sizeof(txBuff));
+	snprintf(txBuff, sizeof(txBuff), "%s\n",request);
 	bytesWrite = send(clientData.socketfd, txBuff, sizeof(txBuff), 0);
 		sprintf(tmpBuff, "bytesWrite:%d", bytesWrite);
 		logger(__FUNCTION__, tmpBuff);
@@ -159,7 +146,7 @@ void sendRequest(char *request)
 	do
 	{
 		bytesRead = recv(clientData.socketfd, rxBuff, sizeof(rxBuff), 0);
-		sprintf(tmpBuff, "bytesRead:%d", bytesRead);
+		sprintf(tmpBuff, "bytesRead:%d :%s", bytesRead, rxBuff);
 		logger(__FUNCTION__, tmpBuff);
 		menuData.dataRxCount += bytesRead;
 		drawMore(rxBuff);

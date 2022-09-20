@@ -71,11 +71,6 @@ void menu(menu_t *menuData)
             printf("Logging to a file.\n");
             break;
 
-        case 'd':
-        case 'D':
-            printf("Download file\n");
-            break;
-
         case 'x':
         case 'X':
             printf("Quit\n");

@@ -41,6 +41,7 @@ typedef struct serverData_t
     int port;
     char connIp[MAX_CONNECTIONS][INET6_ADDRSTRLEN];
     int connCount;
+    FILE *fp;                       // File to send
 }serverData_t;
 serverData_t serverData;
 menu_t menuData;
@@ -64,10 +65,11 @@ int DoSendBuffer(int sessionFd, char *buffer, int length)
             index += count;
         }
     }
+    logger(__FUNCTION__, " - Done");
     return index;
 }
 
-void SendFile(FILE *fp, int sockfd)
+void SendFile(int sockfd, FILE *fp)
 {
     int n;
     char data[SIZE] = {0};
@@ -96,16 +98,24 @@ void RequestFileName(int sockfd)
  
 }
 
-void SendFileToClient(int sockfd, char *fileName)
+void SendFileToClient(int sockfd, char *filename)
 {
 	DIR *d;
 	struct dirent *dir;
     char buffer[SIZE];
+    FILE *fp;
 
 	d = opendir("../docs");
 	if (d)
     {
-
+        fp = fopen(filename, "r");
+        if (fp == NULL) 
+        {
+            logger(__FUNCTION__, "[-]Error in opening file.");
+            
+        }
+        SendFile(sockfd, fp);
+ 
     }
 }
 
@@ -129,6 +139,8 @@ int GetFileList(int sockfd)
 	    }
 	    closedir(d);
 	}
+
+    logger(__FUNCTION__, " - Done");
     return 0;
 }
 
@@ -137,29 +149,37 @@ void handle_session(int socket_fd, char *rxBuff) {
     char buffer[SIZE];
 
     memset(buffer, 0, SIZE);
-    size_t length = strftime(buffer, sizeof(buffer), "%a %b %d %T %Y\r\n", localtime(&now));
-    logger(__FUNCTION__, buffer);
-    if (length == 0)
-    {
-        snprintf(buffer, sizeof(buffer), "[-]Error: buffer overflow\r\n");
-        logger(__FUNCTION__, buffer);
-    }
-    DoSendBuffer(socket_fd, buffer, length);
-    
-    memset(buffer, 0, SIZE);
     snprintf(buffer, sizeof(buffer), "%s", rxBuff);
     logger(__FUNCTION__, buffer);
-    switch(rxBuff[0])
+    int messLen = strlen(buffer);
+    if (messLen > 2)  // Message to big to be a request
     {
-        case 't':
-            GetFileList(socket_fd);
-            break;
-        case 'd':
-            RequestFileName(socket_fd);
-        default:
-            break;
+        SendFileToClient(socket_fd, buffer);
     }
+    else
+    {   // Send a timestamp to the client.
+        memset(buffer, 0, SIZE);
+        // size_t length = strftime(buffer, sizeof(buffer), "%a %b %d %T %Y\r\n", localtime(&now));
+        // logger(__FUNCTION__, buffer);
+        // if (length == 0)
+        // {
+        //     snprintf(buffer, sizeof(buffer), "[-]Error: buffer overflow\r\n");
+        //     logger(__FUNCTION__, buffer);
+        // }
+        // DoSendBuffer(socket_fd, buffer, length);
     
+        switch(rxBuff[0])
+        {
+            case 't':
+                GetFileList(socket_fd);
+                break;
+            case 'd':
+                RequestFileName(socket_fd);
+            default:
+                break;
+        }
+    }
+    logger(__FUNCTION__, " - Done.");
 }
 
 /* This function allows for multiple client connections. */
@@ -265,13 +285,13 @@ int AcceptConnections(void)
             {
                 //Check if it was for closing , and also read the
                 //incoming message
-                if ((serverData.valread = read( serverData.sd , buffer, SIZE)) == 0)
+                if ((serverData.valread = recv( serverData.sd , buffer, SIZE, 0)) == 0)
                 {
                     menuData.dataRxCount += serverData.valread;
                     //Somebody disconnected , get his details and print
                     getpeername(serverData.sd, (struct sockaddr*)&serverData.address, \
                     (socklen_t*)&serverData.addrlen);
-                    menuData.connections = ++serverData.connCount;
+                    menuData.connections = --serverData.connCount;
                     DrawMenu(&menuData);
                     puts("Host disconnected");
                     snprintf(msg, sizeof(msg), "Host disconnected, ip %s, port %d \n",
