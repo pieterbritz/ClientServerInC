@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <curses.h>
+#include <netinet/in.h>
 
 #define MAX_CONNECTIONS 80
 
